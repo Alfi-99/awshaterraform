@@ -1,17 +1,17 @@
 # 1. DB Subnet Group: Memberitahu AWS di subnet mana saja RDS boleh berjalan
 resource "aws_db_subnet_group" "main" {
   name       = "main-db-subnet-group"
-  subnet_ids = aws_subnet.pub[*].id # Menggunakan subnet yang sudah kamu buat di network.tf
+  subnet_ids = aws_subnet.pub[*].id 
 
   tags = { Name = "Main DB Subnet Group" }
 }
 
-# 2. Security Group untuk RDS (Kode kamu yang sudah saya rapikan)
+# 2. Security Group untuk RDS
 resource "aws_security_group" "db_sg" {
   name   = "db-sg"
   vpc_id = aws_vpc.main.id
 
-  # Izin dari Web Tier (Untuk Aplikasi Laravel/Web kamu)
+  # Izin dari Web Tier
   ingress {
     from_port       = 3306
     to_port         = 3306
@@ -19,7 +19,7 @@ resource "aws_security_group" "db_sg" {
     security_groups = [aws_security_group.web_sg.id]
   }
 
-  # Izin dari Bastion Host (Agar kamu bisa remote/maintenance dari luar)
+  # Izin dari Bastion Host 
   ingress {
     from_port       = 3306
     to_port         = 3306
@@ -37,23 +37,23 @@ resource "aws_security_group" "db_sg" {
   tags = { Name = "RDS-Security-Group" }
 }
 
-# 3. RDS MySQL Instance (Inilah Database-nya)
+# 3. RDS MySQL Instance 
 resource "aws_db_instance" "terradb" {
   allocated_storage    = 20
   engine               = "mysql"
   engine_version       = "8.0"
-  instance_class       = "db.t3.micro" # Free tier friendly
-  db_name              = "terradb"     # Nama database awal
+  instance_class       = "db.t3.micro" 
+  db_name              = "terradb"
   username             = "admin"
-  password             = "admin12345"  # Pastikan minimal 8 karakter
+  password             = "admin12345"
   parameter_group_name = "default.mysql8.0"
   
   # Pengaturan High Availability & Keamanan
-  multi_az               = true  # Membuat database cadangan di AZ lain (HA)
+  multi_az               = true
   db_subnet_group_name   = aws_db_subnet_group.main.name
   vpc_security_group_ids = [aws_security_group.db_sg.id]
-  skip_final_snapshot    = true  # Agar gampang dihapus saat terraform destroy
-  publicly_accessible    = false # WAJIB FALSE agar database tidak bisa ditembak langsung dari internet
+  skip_final_snapshot    = true  
+  publicly_accessible    = false 
 
   tags = { Name = "Main-RDS-Instance" }
 }
