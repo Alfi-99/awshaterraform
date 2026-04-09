@@ -1,81 +1,76 @@
 # AWS High Availability Infrastructure with Terraform
 
-Repositori ini berisi kode Terraform untuk mendesain infrastruktur web 3-tier yang resilien di AWS. Arsitektur ini menggunakan prinsip *Multi-AZ* untuk menjamin ketersediaan tinggi pada lapisan *compute* dan *database*.
+Repositori ini berisi infrastruktur berbasis kode (IaC) untuk membangun arsitektur web 3-tier yang tahan banting (*highly available*) di AWS. Arsitektur ini memastikan aplikasi tetap berjalan meskipun terjadi gangguan pada salah satu data center (Availability Zone).
 
-## 🏗️ Desain Arsitektur
+## 🏗️ Arsitektur Sistem
 
-Infrastruktur ini terdiri dari komponen-komponen berikut:
+Infrastruktur ini mencakup komponen-komponen utama berikut:
 
-* **VPC & Networking:** VPC dengan CIDR `10.30.0.0/16` dan 2 Subnet Publik di Availability Zone (AZ) yang berbeda.
-* **Application Load Balancer (ALB):** Berfungsi sebagai entitas tunggal untuk menerima trafik HTTP (Port 80) dan mendistribusikannya ke backend.
-* **Auto Scaling Group (ASG):** Mengelola armada instance EC2 secara otomatis. Jika ada instance yang tidak sehat, ASG akan menggantinya secara otomatis.
-* **RDS Multi-AZ:** Database MySQL yang berjalan dengan replika standby di AZ berbeda untuk *failover* otomatis jika terjadi gangguan pada zona utama.
+* **VPC & Networking:** Custom VPC dengan 2 Public Subnet di AZ berbeda (`ap-southeast-1a` & `ap-southeast-1b`).
+* **Application Load Balancer (ALB):** Sebagai entry point tunggal yang mendistribusikan trafik secara merata.
+* **Auto Scaling Group (ASG):** Mengelola minimal 2 instance EC2 secara otomatis dengan fitur *Self-Healing*.
+* **RDS Multi-AZ:** Database MySQL dengan replika standby di zona berbeda untuk *failover* otomatis.
+* **Dynamic User Data:** Skrip bash otomatis yang menginstal Apache dan menampilkan lokasi AZ secara real-time di browser.
 
 
 
 ---
 
-## 📂 Struktur Project
+## 📂 Struktur File
 
 | File | Deskripsi |
 | :--- | :--- |
-| `provider.tf` | Definisi provider AWS dan konfigurasi region. |
-| `network.tf` | Resource VPC, Subnet, Internet Gateway, dan Route Table. |
-| `web_tier.tf` | Konfigurasi Security Group web, ALB, Launch Template, dan ASG. |
-| `db_tier.tf` | Konfigurasi Security Group database, Subnet Group, dan RDS Instance. |
+| `provider.tf` | Konfigurasi provider AWS. |
+| `network.tf` | Definisi VPC, Subnets, IGW, dan Routing. |
+| `web_tier.tf` | Konfigurasi ALB, ASG, Launch Template, dan Security Groups. |
+| `db_tier.tf` | Konfigurasi RDS Multi-AZ dan DB Subnet Group. |
+| `.gitignore` | Mencegah file sensitif (.tfstate) terunggah ke Git. |
 
 ---
 
-## 🚀 Alur Kerja (Workflow)
+## 🚀 Cara Menjalankan
 
-Ikuti langkah-langkah berikut untuk melakukan deployment:
+### 1. Persiapan
+Pastikan AWS CLI sudah terkonfigurasi:
+```bash
+aws configure
+```
 
-### 1. Inisialisasi
-Langkah ini digunakan untuk mengunduh plugin provider AWS yang diperlukan oleh Terraform.
+### 2. Deployment
+Jalankan perintah Terraform secara berurutan:
 ```bash
 terraform init
-```
-
-### 2. Validasi & Perencanaan
-Melihat perubahan apa saja yang akan dilakukan Terraform terhadap infrastruktur AWS sebelum eksekusi dilakukan.
-```bash
 terraform plan
-```
-
-### 3. Eksekusi (Deployment)
-Menerapkan konfigurasi ke akun AWS. Pastikan kredensial AWS sudah terkonfigurasi di mesin lokal.
-```bash
 terraform apply
 ```
-*(Ketik `yes` saat konfirmasi muncul. Estimasi waktu: 10-15 menit karena provisi database RDS).*
 
-### 4. Penghapusan Resource
-Untuk menghindari biaya yang tidak diinginkan setelah pengujian selesai, hapus seluruh resource dengan perintah:
+### 3. Verifikasi High Availability
+Akses **DNS Name** dari Load Balancer di browser. Lakukan *refresh* untuk melihat trafik berpindah antar Availability Zone.
+
+### 4. Instance Refresh
+Jika kamu mengubah skrip `user_data`, ASG dikonfigurasi untuk melakukan **Rolling Update** secara otomatis melalui blok `instance_refresh`:
+```hcl
+instance_refresh {
+  strategy = "Rolling"
+}
+```
+
+---
+
+## 🛡️ Keamanan Jaringan (Security Matrix)
+
+Isolasi trafik diterapkan secara ketat menggunakan Security Groups:
+1.  **ALB:** Menerima trafik HTTP (80) dari publik.
+2.  **Web Server:** Hanya menerima trafik dari Security Group ALB.
+3.  **Database:** Hanya menerima trafik port 3306 dari Security Group Web Server.
+
+---
+
+## 🧹 Membersihkan Resource
+Jangan lupa hapus semua resource setelah selesai pengujian untuk menghindari biaya tambahan:
 ```bash
 terraform destroy
 ```
+```
 
 ---
-
-## 🛡️ Matriks Keamanan (Security Groups)
-
-Sistem ini menerapkan isolasi trafik antar lapisan (*tier isolation*):
-
-1.  **ALB Security Group:** Mengizinkan trafik masuk port 80 dari `0.0.0.0/0`.
-2.  **Web Security Group:** Mengizinkan trafik port 80 **hanya** jika berasal dari Security Group ALB.
-3.  **Database Security Group:** Mengizinkan trafik port 3306 (MySQL) **hanya** jika berasal dari Security Group Web.
-
----
-
-## 🔍 Detail Spesifikasi
-
-* **Region:** `ap-southeast-1` (Singapore)
-* **OS:** Ubuntu 22.04 LTS (`ami-0df7a207adb8948a7`)
-* **Instance Type:** `t2.micro`
-* **Database:** MySQL 8.0 (Free Tier Eligible)
-* **Scaling:** Minimal 2 instance, Maksimal 3 instance.
-
----
-
-**Catatan Teknis:** - User data pada `web_tier.tf` secara otomatis menginstal Apache untuk keperluan *health check* Load Balancer.
-- Gunakan perintah `terraform fmt` untuk menjaga kerapihan sintaks kode sebelum melakukan *commit*.
