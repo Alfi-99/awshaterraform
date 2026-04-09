@@ -77,5 +77,19 @@ Sistem ini menerapkan isolasi trafik antar lapisan (*tier isolation*):
 
 ---
 
+## 🔐 Akses Database via Bastion Host
+
+Untuk alasan keamanan, Database RDS tidak memiliki IP publik dan tidak bisa diakses langsung dari internet. Akses administratif hanya diizinkan melalui **Bastion Host**:
+
+
+
+**Alur Koneksi:**
+`Local Machine` --(SSH)--> `Bastion Host` --(MySQL Port 3306)--> `RDS Instance`
+
+**Cara Remote via Tunneling:**
+```bash
+ssh -i "key.pem" -L 3307:endpoint-rds-kamu.aws.com:3306 ubuntu@ip-bastion-host
+
+
 **Catatan Teknis:** - User data pada `web_tier.tf` secara otomatis menginstal Apache untuk keperluan *health check* Load Balancer.
 - Gunakan perintah `terraform fmt` untuk menjaga kerapihan sintaks kode sebelum melakukan *commit*.
