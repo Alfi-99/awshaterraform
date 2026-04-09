@@ -1,0 +1,14 @@
+# Local .terraform folder
+.terraform/
+
+# Terraform state files
+*.tfstate
+*.tfstate.backup
+*.tfstate.lock.info
+
+# Variable files (sensitive data)
+*.tfvars
+*.tfvars.json
+
+# Provider binaries
+*.exe
