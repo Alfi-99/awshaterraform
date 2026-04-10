@@ -33,10 +33,17 @@ jobs:
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
+      - name: Fill in the new image ID in the Amazon ECS task definition
+        id: task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-definition.json # File JSON task def kamu
+          container-name: app-container # CHANGE THIS to the actual container name in your task-definition.json
+          image: ${{ steps.build-image.outputs.image }}
+
       - name: Deploy Amazon ECS task definition
         uses: aws-actions/amazon-ecs-deploy-task-definition@v1
         with:
-          task-definition: task-definition.json # File JSON task def kamu
+          task-definition: ${{ steps.task-def.outputs.task-definition }}
           service: app-service
           cluster: main-cluster
-          image: ${{ steps.build-image.outputs.image }}
