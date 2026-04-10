@@ -1,0 +1,24 @@
+{
+    "family": "latihan-task",
+    "containerDefinitions": [
+        {
+            "name": "web-container",
+            "image": "725301416406.dkr.ecr.ap-southeast-1.amazonaws.com/latihan-ecs-repo:latest",
+            "portMappings": [
+                {
+                    "containerPort": 80,
+                    "hostPort": 80,
+                    "protocol": "tcp"
+                }
+            ],
+            "essential": true
+        }
+    ],
+    "requiresCompatibilities": [
+        "FARGATE"
+    ],
+    "networkMode": "awsvpc",
+    "cpu": "256",
+    "memory": "512",
+    "executionRoleArn": "arn:aws:iam::725301416406:role/ecsTaskExecutionRole"
+}
