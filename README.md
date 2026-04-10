@@ -1,95 +1,91 @@
-# AWS High Availability Infrastructure with Terraform
+# AWS High Availability Infrastructure with ECS Fargate & Terraform
 
-Repositori ini berisi kode Terraform untuk mendesain infrastruktur web 3-tier yang resilien di AWS. Arsitektur ini menggunakan prinsip *Multi-AZ* untuk menjamin ketersediaan tinggi pada lapisan *compute* dan *database*.
+Repositori ini berisi infrastruktur berbasis **Infrastructure as Code (IaC)** menggunakan Terraform untuk mendeploy aplikasi web sederhana ke **Amazon ECS (Elastic Container Service) Fargate**. Proyek ini juga mengintegrasikan **CI/CD Pipeline** menggunakan GitHub Actions.
 
-## 🏗️ Desain Arsitektur
+## 🏗️ Topologi Infrastruktur
 
-Infrastruktur ini terdiri dari komponen-komponen berikut:
-
-* **VPC & Networking:** VPC dengan CIDR `10.30.0.0/16` dan 2 Subnet Publik di Availability Zone (AZ) yang berbeda.
-* **Application Load Balancer (ALB):** Berfungsi sebagai entitas tunggal untuk menerima trafik HTTP (Port 80) dan mendistribusikannya ke backend.
-* **Auto Scaling Group (ASG):** Mengelola armada instance EC2 secara otomatis. Jika ada instance yang tidak sehat, ASG akan menggantinya secara otomatis.
-* **RDS Multi-AZ:** Database MySQL yang berjalan dengan replika standby di AZ berbeda untuk *failover* otomatis jika terjadi gangguan pada zona utama.
+Infrastruktur ini dirancang dengan prinsip *High Availability* dan *Scalability*.
 
 
 
----
-
-## 📂 Struktur Project
-
-| File | Deskripsi |
-| :--- | :--- |
-| `provider.tf` | Definisi provider AWS dan konfigurasi region. |
-| `network.tf` | Resource VPC, Subnet, Internet Gateway, dan Route Table. |
-| `web_tier.tf` | Konfigurasi Security Group web, ALB, Launch Template, dan ASG. |
-| `db_tier.tf` | Konfigurasi Security Group database, Subnet Group, dan RDS Instance. |
+### Komponen Utama:
+1.  **VPC (Virtual Private Cloud):** Jaringan terisolasi dengan rentang IP `10.0.0.0/16`.
+2.  **Subnets:** Terdiri dari Public Subnet untuk **Application Load Balancer (ALB)** dan Bastion Host.
+3.  **Application Load Balancer (ALB):** Sebagai pintu masuk utama yang mendistribusikan trafik ke container.
+4.  **Amazon ECS Fargate:** Menjalankan container Docker tanpa perlu mengelola server (Serverless).
+5.  **Amazon ECR (Elastic Container Registry):** Tempat penyimpanan Docker Image.
+6.  **Amazon RDS (MySQL):** Database relasional yang ditempatkan di subnet khusus.
+7.  **IAM Roles:** Izin akses untuk Task Execution agar ECS bisa mengambil image dari ECR dan menulis log ke CloudWatch.
 
 ---
 
-## 🚀 Alur Kerja (Workflow)
+## 🚀 Alur CI/CD (Otomasi)
 
-Ikuti langkah-langkah berikut untuk melakukan deployment:
+Proyek ini menggunakan **GitHub Actions** untuk memastikan setiap perubahan kode pada `main` branch langsung dideploy ke AWS secara otomatis.
 
-### 1. Inisialisasi
-Langkah ini digunakan untuk mengunduh plugin provider AWS yang diperlukan oleh Terraform.
+
+
+1.  **Developer** melakukan `git push` ke GitHub.
+2.  **GitHub Actions** terpicu dan melakukan:
+    * Login ke AWS menggunakan Credentials.
+    * Build Docker Image dari `Dockerfile`.
+    * Push Image ke **Amazon ECR**.
+    * Update **ECS Task Definition** dengan image terbaru.
+    * Deploy ke **ECS Service**.
+
+---
+
+## 🛠️ Persiapan & Instalasi
+
+### Prasyarat
+* Terraform installed.
+* AWS CLI configured dengan akses Administrator.
+* Akun GitHub dan Repository.
+
+### Langkah-langkah Deployment
+
+1.  **Clone Repository:**
+    ```bash
+    git clone https://github.com/username/repository-kamu.git
+    cd repository-kamu
+    ```
+
+2.  **Inisialisasi Terraform:**
+    ```bash
+    terraform init
+    ```
+
+3.  **Deploy Infrastruktur:**
+    ```bash
+    terraform apply -auto-approve
+    ```
+
+4.  **Konfigurasi GitHub Secrets:**
+    Masukkan variabel berikut ke **Settings > Secrets and variables > Actions** di repositori GitHub kamu:
+    * `AWS_ACCESS_KEY_ID`
+    * `AWS_SECRET_ACCESS_KEY`
+
+---
+
+## 📂 Struktur File
+* `provider.tf`: Konfigurasi provider AWS dan Region.
+* `network.tf`: Definisi VPC, Subnet, Internet Gateway, dan Route Tables.
+* `ecs_tier.tf`: Definisi Cluster, Task Definition, dan Service ECS.
+* `elb_tier.tf`: Konfigurasi Load Balancer dan Target Group.
+* `db_tier.tf`: Konfigurasi database RDS MySQL.
+* `iam.tf`: Definisi Role dan Policy untuk akses antar layanan.
+* `.github/workflows/deploy.yml`: Pipeline otomatisasi deployment.
+
+---
+
+## 📝 Catatan Penting
+* **Keamanan:** Jangan pernah melakukan commit pada file `terraform.tfstate` atau mengekspos `ACCESS_KEY` di dalam kode.
+* **Biaya:** Pastikan melakukan `terraform destroy` jika infrastruktur sudah tidak digunakan untuk menghindari tagihan yang membengkak.
+
+---
+
+### Cara Mengakses Web
+Setelah semua proses selesai (Centang Hijau di GitHub Actions), ambil **DNS Name** dari Load Balancer melalui output Terraform:
 ```bash
-terraform init
+terraform output alb_dns_name
 ```
-
-### 2. Validasi & Perencanaan
-Melihat perubahan apa saja yang akan dilakukan Terraform terhadap infrastruktur AWS sebelum eksekusi dilakukan.
-```bash
-terraform plan
-```
-
-### 3. Eksekusi (Deployment)
-Menerapkan konfigurasi ke akun AWS. Pastikan kredensial AWS sudah terkonfigurasi di mesin lokal.
-```bash
-terraform apply
-```
-*(Ketik `yes` saat konfirmasi muncul. Estimasi waktu: 10-15 menit karena provisi database RDS).*
-
-### 4. Penghapusan Resource
-Untuk menghindari biaya yang tidak diinginkan setelah pengujian selesai, hapus seluruh resource dengan perintah:
-```bash
-terraform destroy
-```
-
----
-
-## 🛡️ Matriks Keamanan (Security Groups)
-
-Sistem ini menerapkan isolasi trafik antar lapisan (*tier isolation*):
-
-1.  **ALB Security Group:** Mengizinkan trafik masuk port 80 dari `0.0.0.0/0`.
-2.  **Web Security Group:** Mengizinkan trafik port 80 **hanya** jika berasal dari Security Group ALB.
-3.  **Database Security Group:** Mengizinkan trafik port 3306 (MySQL) **hanya** jika berasal dari Security Group Web.
-
----
-
-## 🔍 Detail Spesifikasi
-
-* **Region:** `ap-southeast-1` (Singapore)
-* **OS:** Ubuntu 22.04 LTS
-* **Instance Type:** `t3.micro`
-* **Database:** MySQL 8.0 (Free Tier Eligible)
-* **Scaling:** Minimal 2 instance, Maksimal 3 instance.
-
----
-
-## 🔐 Akses Database via Bastion Host
-
-Untuk alasan keamanan, Database RDS tidak memiliki IP publik dan tidak bisa diakses langsung dari internet. Akses administratif hanya diizinkan melalui **Bastion Host**:
-
-
-
-**Alur Koneksi:**
-`Local Machine` --(SSH)--> `Bastion Host` --(MySQL Port 3306)--> `RDS Instance`
-
-**Cara Remote via Tunneling:**
-```bash
-ssh -i "key.pem" -L 3307:endpoint-rds-kamu.aws.com:3306 ubuntu@ip-bastion-host
-
-
-**Catatan Teknis:** - User data pada `web_tier.tf` secara otomatis menginstal Apache untuk keperluan *health check* Load Balancer.
-- Gunakan perintah `terraform fmt` untuk menjaga kerapihan sintaks kode sebelum melakukan *commit*.
