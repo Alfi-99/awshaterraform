@@ -1,14 +1,35 @@
-# Local .terraform folder
-.terraform/
-
-# Terraform state files
+# --- Terraform ---
+# Mengabaikan file state yang berisi data sensitif (password RDS, dll)
 *.tfstate
 *.tfstate.backup
-*.tfstate.lock.info
-
-# Variable files (sensitive data)
+.terraform/
 *.tfvars
 *.tfvars.json
 
-# Provider binaries
-*.exe
+# --- Docker ---
+# Mengabaikan data volume lokal agar tidak mengotori repo
+.docker/
+**/data/
+
+# --- AWS & Sensitive Data ---
+# Mencegah kredensial AWS lokal terupload
+.aws/
+credentials
+*.pem
+*.pub
+
+# --- PHP / Laravel (Jika kamu pakai) ---
+# Mengabaikan folder vendor dan file env
+vendor/
+.env
+.env.backup
+storage/*.key
+/public/storage
+/public/hot
+/public/mix-manifest.json
+
+# --- OS & IDE ---
+.DS_Store
+.vscode/
+.idea/
+Thumbs.db
