@@ -1,6 +1,6 @@
 resource "aws_db_subnet_group" "main" {
-  name       = "main-db-subnet-group"
-  subnet_ids = aws_subnet.pub[*].id # Ini manggul subnet dari network.tf
+name       = "latihan-db-subnet-group-v2" # Ganti namanya di sini (tambah -v2)
+  subnet_ids = aws_subnet.pub[*].id
 
   tags = {
     Name = "Main DB Subnet Group"
